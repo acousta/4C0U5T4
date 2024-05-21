@@ -1,8 +1,3 @@
-{{
-  config(
-    materialized='view'
-  )
-}}
 with customers as (
 
     select * from {{ ref('stg_customers') }}
@@ -29,7 +24,15 @@ customer_orders as (
     group by 1
 
 ),
+PAYMENT AS (
+    SELECT 
+        customer_id, 
+        sum(case when status = 'success' then amount end) as LIFETIME_VALUE
+    
+    FROM {{ ref('fct_orders')}} 
+    group by customer_id
 
+),
 final as (
 
     select
@@ -38,11 +41,13 @@ final as (
         customers.last_name,
         customer_orders.first_order_date,
         customer_orders.most_recent_order_date,
-        coalesce(customer_orders.number_of_orders, 0) as number_of_orders
+        coalesce(customer_orders.number_of_orders, 0) as number_of_orders,
+        payment.LIFETIME_VALUE AS LIFETIME_VALUE
 
     from customers
 
-    left join customer_orders using (customer_id)
+    left join customer_orders using (customer_orders.customer_id)
+    LEFT JOIN payment using (payment.customer_id)
 
 )
 
